@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestion des uniformes</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --border: rgba(0,0,0,0.09);
+    --border-med: rgba(0,0,0,0.15);
+    --text: #1a1a1a;
+    --muted: #666;
+    --faint: #999;
+    --accent: #1a3a5c;
+    --green-bg: #eaf3de; --green-text: #2d6a10;
+    --amber-bg: #faeeda; --amber-text: #7a4a00;
+    --red-bg: #fcebeb;   --red-text: #8b1f1f;
+    --r: 8px; --rl: 12px;
+  }
+  body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+
+  header { background: var(--accent); color: white; padding: 14px 24px; display: flex; align-items: center; gap: 10px; }
+  header h1 { font-size: 16px; font-weight: 600; }
+  header .sub { font-size: 12px; opacity: .6; }
+  .hbadge { margin-left: auto; background: rgba(255,255,255,.15); border-radius: 20px; padding: 3px 12px; font-size: 12px; }
+
+  nav { background: var(--surface); border-bottom: 1px solid var(--border-med); padding: 0 24px; display: flex; }
+  nav button { background: none; border: none; border-bottom: 2px solid transparent; padding: 11px 14px; font-size: 13px; color: var(--muted); cursor: pointer; font-family: inherit; }
+  nav button:hover { color: var(--text); }
+  nav button.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+
+  main { max-width: 960px; margin: 0 auto; padding: 20px 16px; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .card { background: var(--surface); border: 1px solid var(--border-med); border-radius: var(--rl); padding: 18px 20px; margin-bottom: 14px; }
+  .card-title { font-size: 11px; font-weight: 600; color: var(--faint); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 14px; }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap: 10px; margin-bottom: 14px; }
+  .stat { background: var(--surface); border: 1px solid var(--border-med); border-radius: var(--r); padding: 12px 14px; }
+  .stat-label { font-size: 11px; color: var(--faint); margin-bottom: 3px; }
+  .stat-value { font-size: 26px; font-weight: 600; line-height: 1; }
+  .stat-sub { font-size: 11px; color: var(--faint); margin-top: 3px; }
+
+  .alert { background: var(--amber-bg); border: 1px solid #e8c06a; border-radius: var(--r); padding: 12px 14px; margin-bottom: 14px; }
+  .alert-title { font-size: 13px; font-weight: 600; color: var(--amber-text); margin-bottom: 5px; }
+  .alert-item { font-size: 13px; color: var(--amber-text); padding: 1px 0; }
+
+  /* Overview size table */
+  .overview-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .overview-table th { text-align: left; padding: 7px 8px; font-size: 11px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border-med); text-transform: uppercase; letter-spacing: .04em; }
+  .overview-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .overview-table tr:last-child td { border-bottom: none; }
+  .overview-table tr:hover td { background: var(--bg); }
+  .tc { text-align: center; }
+  .tw { font-weight: 600; }
+
+  /* +/- controls */
+  .qty { display: inline-flex; align-items: center; gap: 0; border: 1px solid var(--border-med); border-radius: 6px; overflow: hidden; }
+  .qty button { background: var(--bg); border: none; width: 24px; height: 24px; font-size: 15px; cursor: pointer; color: var(--muted); line-height: 1; display: flex; align-items: center; justify-content: center; }
+  .qty button:hover { background: #e8e8e5; color: var(--text); }
+  .qty span { min-width: 28px; text-align: center; font-size: 13px; font-weight: 500; padding: 0 2px; line-height: 24px; }
+  .qty.sz-0   { border-color: #f7c1c1; }
+  .qty.sz-0 span { color: var(--red-text); background: var(--red-bg); }
+  .qty.sz-low { border-color: #fac775; }
+  .qty.sz-low span { color: var(--amber-text); background: var(--amber-bg); }
+  .qty.sz-ok  { border-color: #c0dd97; }
+  .qty.sz-ok span { color: var(--green-text); background: var(--green-bg); }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+  .b-ok    { background: var(--green-bg); color: var(--green-text); }
+  .b-low   { background: var(--amber-bg); color: var(--amber-text); }
+  .b-empty { background: var(--red-bg);   color: var(--red-text); }
+
+  .toggle { display: flex; background: var(--bg); border: 1px solid var(--border-med); border-radius: var(--r); padding: 3px; width: fit-content; margin-bottom: 12px; }
+  .toggle button { background: none; border: none; padding: 5px 18px; border-radius: 6px; font-size: 13px; color: var(--muted); cursor: pointer; font-family: inherit; }
+  .toggle button.active { background: var(--surface); color: var(--text); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+
+  /* Divers +/- grid */
+  .dg { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr)); gap: 8px; }
+  .dc { background: var(--bg); border: 1px solid var(--border-med); border-radius: var(--r); padding: 12px 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .dc-name { font-size: 11px; color: var(--faint); }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+  .li { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+  .ld { width: 10px; height: 10px; border-radius: 2px; }
+
+  .save-bar { background: var(--accent); color: white; padding: 10px 20px; border-radius: var(--r); margin-bottom: 14px; display: none; align-items: center; gap: 12px; font-size: 13px; }
+  .save-bar.visible { display: flex; }
+  .save-bar button { background: white; color: var(--accent); border: none; border-radius: 6px; padding: 5px 14px; font-size: 13px; font-weight: 600; cursor: pointer; margin-left: auto; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* Voucher overview inside summary */
+  .voucher-mini { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .vtag { background: var(--bg); border: 1px solid var(--border-med); border-radius: 4px; padding: 2px 7px; font-size: 12px; color: var(--muted); }
+  .vtag b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Uniformes — Antenne 2026</h1>
+    <div class="sub">Responsable tenue</div>
+  </div>
+  <div class="hbadge" id="hbadge">—</div>
+</header>
+
+<nav>
+  <button class="active" onclick="tab('overview',this)">Vue d'ensemble</button>
+  <button onclick="tab('stocks',this)">Stocks par taille</button>
+  <button onclick="tab('divers',this)">Divers &amp; vouchers</button>
+</nav>
+
+<main>
+
+  <!-- OVERVIEW -->
+  <div id="tab-overview" class="tab-panel active">
+    <div id="save-bar" class="save-bar">
+      Modifications non sauvegardées
+      <button onclick="saveData()">Sauvegarder</button>
+    </div>
+    <div id="alert-box" class="alert" style="display:none">
+      <div class="alert-title">Articles à réapprovisionner</div>
+      <div id="alert-list"></div>
+    </div>
+    <div class="summary-grid">
+      <div class="stat"><div class="stat-label">Embauches 2026</div><div class="stat-value">18</div><div class="stat-sub">agents à équiper</div></div>
+      <div class="stat"><div class="stat-label">Uniformes en stock</div><div class="stat-value" id="s-total">—</div><div class="stat-sub">pièces</div></div>
+      <div class="stat"><div class="stat-label">Tailles à zéro</div><div class="stat-value" id="s-empty" style="color:var(--red-text)">—</div><div class="stat-sub">références vides</div></div>
+      <div class="stat">
+        <div class="stat-label">Vouchers dispos</div>
+        <div class="stat-value" id="s-vouchers">—</div>
+        <div class="voucher-mini" id="voucher-mini"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Stocks femme — par taille</div>
+      <table class="overview-table" id="ov-f"></table>
+    </div>
+    <div class="card">
+      <div class="card-title">Stocks homme — par taille</div>
+      <table class="overview-table" id="ov-h"></table>
+    </div>
+  </div>
+
+  <!-- STOCKS -->
+  <div id="tab-stocks" class="tab-panel">
+    <div id="save-bar2" class="save-bar">
+      Modifications non sauvegardées
+      <button onclick="saveData()">Sauvegarder</button>
+    </div>
+    <div class="toggle">
+      <button class="active" onclick="gender('F',this)">Femme</button>
+      <button onclick="gender('H',this)">Homme</button>
+    </div>
+    <div class="card">
+      <table class="overview-table">
+        <thead><tr><th>Article</th><th class="tc">XS</th><th class="tc">S</th><th class="tc">M</th><th class="tc">L</th><th class="tc">XL</th><th class="tc">XXL</th><th class="tc">XXXL</th><th class="tc">Total</th></tr></thead>
+        <tbody id="stocks-tbody"></tbody>
+      </table>
+    </div>
+    <div class="legend">
+      <div class="li"><div class="ld" style="background:var(--red-bg);border:1px solid #f7c1c1"></div>Vide</div>
+      <div class="li"><div class="ld" style="background:var(--amber-bg);border:1px solid #fac775"></div>Faible (≤2)</div>
+      <div class="li"><div class="ld" style="background:var(--green-bg);border:1px solid #c0dd97"></div>OK</div>
+    </div>
+  </div>
+
+  <!-- DIVERS -->
+  <div id="tab-divers" class="tab-panel">
+    <div id="save-bar3" class="save-bar">
+      Modifications non sauvegardées
+      <button onclick="saveData()">Sauvegarder</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Articles divers</div>
+      <div class="dg" id="divers-grid"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Vouchers disponibles</div>
+      <div class="dg" id="vouchers-grid"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const DEFAULT = {
+  stock: {
+    H: {
+      Pantalon:  {XS:3,S:3,M:0,L:0,XL:0,XXL:0,XXXL:0},
+      Softshell: {XS:0,S:0,M:0,L:2,XL:5,XXL:3,XXXL:0},
+      Polo:      {XS:2,S:0,M:1,L:0,XL:0,XXL:0,XXXL:0},
+      Polaire:   {XS:0,S:2,M:0,L:3,XL:0,XXL:0,XXXL:0},
+    },
+    F: {
+      Pantalon:  {XS:0,S:0,M:0,L:0,XL:0,XXL:0,XXXL:0},
+      Softshell: {XS:1,S:1,M:0,L:0,XL:0,XXL:0,XXXL:0},
+      Polo:      {XS:1,S:0,M:0,L:0,XL:0,XXL:0,XXXL:0},
+      Polaire:   {XS:0,S:1,M:0,L:1,XL:0,XXL:0,XXXL:0},
+    }
+  },
+  divers:   {Ceinture:5, Ecusson:45},
+  vouchers: {Pantalon:10, Softshell:4, Polo:6, Polaire:4}
+};
+
+let data = JSON.parse(localStorage.getItem('uniformes-data') || 'null') || JSON.parse(JSON.stringify(DEFAULT));
+let dirty = false;
+
+const SIZES = ['XS','S','M','L','XL','XXL','XXXL'];
+const rowTotal = r => SIZES.reduce((s,k)=>s+(r[k]||0),0);
+const szCls = v => v===0?'sz-0':v<=2?'sz-low':'sz-ok';
+
+function markDirty(){
+  dirty = true;
+  ['save-bar','save-bar2','save-bar3'].forEach(id=>{
+    document.getElementById(id).classList.add('visible');
+  });
+}
+
+function saveData(){
+  localStorage.setItem('uniformes-data', JSON.stringify(data));
+  dirty = false;
+  ['save-bar','save-bar2','save-bar3'].forEach(id=>{
+    document.getElementById(id).classList.remove('visible');
+  });
+  refreshAll();
+}
+
+function makeQty(val, onChange){
+  const cls = szCls(val);
+  const div = document.createElement('div');
+  div.className = `qty ${cls}`;
+  div.innerHTML = `<button aria-label="Diminuer">−</button><span>${val}</span><button aria-label="Augmenter">+</button>`;
+  let v = val;
+  div.querySelector('button:first-child').onclick = ()=>{ if(v>0){ v--; update(div,v); onChange(v); } };
+  div.querySelector('button:last-child').onclick  = ()=>{ v++; update(div,v); onChange(v); };
+  return div;
+}
+
+function update(div, v){
+  div.className = `qty ${szCls(v)}`;
+  div.querySelector('span').textContent = v;
+}
+
+function buildOverview(){
+  ['F','H'].forEach(g=>{
+    const tbl = document.getElementById(`ov-${g.toLowerCase()}`);
+    tbl.innerHTML = `<thead><tr><th>Article</th>${SIZES.map(s=>`<th class="tc">${s}</th>`).join('')}<th class="tc">Total</th></tr></thead>`;
+    const tb = document.createElement('tbody');
+    Object.entries(data.stock[g]).forEach(([t,row])=>{
+      const tr = document.createElement('tr');
+      const tdName = document.createElement('td');
+      tdName.className = 'tw'; tdName.textContent = t;
+      tr.appendChild(tdName);
+      SIZES.forEach(s=>{
+        const td = document.createElement('td');
+        td.className = 'tc';
+        td.appendChild(makeQty(row[s], v=>{ data.stock[g][t][s]=v; markDirty(); refreshSummary(); }));
+        tr.appendChild(td);
+      });
+      const tdTot = document.createElement('td');
+      tdTot.className = 'tc tw'; tdTot.id = `ov-tot-${g}-${t}`;
+      tdTot.textContent = rowTotal(row);
+      tr.appendChild(tdTot);
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb);
+  });
+}
+
+function buildStocks(g){
+  const tb = document.getElementById('stocks-tbody');
+  tb.innerHTML = '';
+  Object.entries(data.stock[g]).forEach(([t,row])=>{
+    const tr = document.createElement('tr');
+    const tdName = document.createElement('td');
+    tdName.className = 'tw'; tdName.textContent = t;
+    tr.appendChild(tdName);
+    SIZES.forEach(s=>{
+      const td = document.createElement('td');
+      td.className = 'tc';
+      td.appendChild(makeQty(row[s], v=>{ data.stock[g][t][s]=v; markDirty(); refreshSummary(); }));
+      tr.appendChild(td);
+    });
+    const tdTot = document.createElement('td');
+    tdTot.className = 'tc tw'; tdTot.textContent = rowTotal(row);
+    tr.appendChild(tdTot);
+    tb.appendChild(tr);
+  });
+}
+
+function buildDivers(){
+  ['divers','vouchers'].forEach(key=>{
+    const grid = document.getElementById(`${key}-grid`);
+    grid.innerHTML = '';
+    Object.entries(data[key]).forEach(([k,v])=>{
+      const div = document.createElement('div');
+      div.className = 'dc';
+      const name = document.createElement('div');
+      name.className = 'dc-name'; name.textContent = k;
+      div.appendChild(name);
+      div.appendChild(makeQty(v, val=>{ data[key][k]=val; markDirty(); refreshSummary(); }));
+      grid.appendChild(div);
+    });
+  });
+}
+
+function refreshSummary(){
+  let total=0, empty=0, alerts=[];
+  ['Pantalon','Softshell','Polo','Polaire'].forEach(t=>{
+    const th=rowTotal(data.stock.H[t]), tf=rowTotal(data.stock.F[t]);
+    total+=th+tf;
+    SIZES.forEach(s=>{ if(!data.stock.H[t][s])empty++; if(!data.stock.F[t][s])empty++; });
+    if(th+tf===0) alerts.push(`${t} — aucun stock`);
+    else { if(th<=2) alerts.push(`${t} Homme — ${th} pièce${th>1?'s':''}`); if(tf<=2) alerts.push(`${t} Femme — ${tf} pièce${tf>1?'s':''}`); }
+    const th_el = document.getElementById(`ov-tot-H-${t}`);
+    const tf_el = document.getElementById(`ov-tot-F-${t}`);
+    if(th_el) th_el.textContent = th;
+    if(tf_el) tf_el.textContent = tf;
+  });
+
+  document.getElementById('s-total').textContent = total;
+  document.getElementById('s-empty').textContent = empty;
+
+  const vTotal = Object.values(data.vouchers).reduce((a,b)=>a+b,0);
+  document.getElementById('s-vouchers').textContent = vTotal;
+  document.getElementById('voucher-mini').innerHTML = Object.entries(data.vouchers)
+    .map(([k,v])=>`<span class="vtag"><b>${v}</b> ${k}</span>`).join('');
+
+  if(alerts.length){
+    document.getElementById('alert-box').style.display='block';
+    document.getElementById('alert-list').innerHTML = alerts.map(a=>`<div class="alert-item">· ${a}</div>`).join('');
+  } else {
+    document.getElementById('alert-box').style.display='none';
+  }
+  document.getElementById('hbadge').textContent = alerts.length ? `${alerts.length} alerte${alerts.length>1?'s':''}` : '✓ Tout OK';
+}
+
+function refreshAll(){ refreshSummary(); }
+
+let currentGender = 'F';
+function gender(g, btn){
+  document.querySelectorAll('.toggle button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentGender = g;
+  buildStocks(g);
+}
+
+function tab(name, btn){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='stocks') buildStocks(currentGender);
+}
+
+buildOverview();
+buildDivers();
+buildStocks('F');
+refreshSummary();
+</script>
+</body>
+</html>
